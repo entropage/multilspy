@@ -38,10 +38,9 @@ dependencies = [
 include-package-data = true
 package-dir = {"" = "src"}
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = [
+[tool.setuptools.packages]
+packages = [
     "multilspy",
-    "multilspy.*"
+    "multilspy.lsp_protocol_handler",
+    "multilspy.init"
 ]
-namespaces = false
