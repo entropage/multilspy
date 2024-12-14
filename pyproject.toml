@@ -40,4 +40,8 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["multilspy*"]
+include = [
+    "multilspy",
+    "multilspy.*"
+]
+namespace = false
