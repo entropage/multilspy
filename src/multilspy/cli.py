@@ -1,10 +1,14 @@
-import sys
+from multilspy import SyncLanguageServer
+from multilspy.multilspy_config import MultilspyConfig
+from multilspy.multilspy_logger import MultilspyLogger
 
-def main(message="hello multilspy"):
+def main(lang: str):
     """Entry point for the multilspy-init command."""
-    print(message)
+    print(f"Initializing Multilspy for {lang}")
+    config = MultilspyConfig.from_dict({"code_language": lang})
+    logger = MultilspyLogger()
+    SyncLanguageServer.create(config, logger, ".")
+    print(f"Multilspy for {lang} initialized successfully")
 
 if __name__ == "__main__":
-    # 获取命令行参数
-    message = sys.argv[1] if len(sys.argv) > 1 else "hello multilspy"
-    main(message) 
+    main() 
