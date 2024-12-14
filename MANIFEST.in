@@ -1,9 +1,1 @@
-recursive-include src/multilspy *.py
-recursive-include src/multilspy/language_servers/typescript_language_server *.json
-recursive-include src/multilspy/language_servers/python_language_server *.json
-recursive-include src/multilspy/language_servers/rust_language_server *.json
-recursive-include src/multilspy/language_servers/java_language_server *.json
-recursive-include src/multilspy/language_servers/csharp_language_server *.json
-recursive-include src/multilspy *.exe
-recursive-include src/multilspy *.jar
-recursive-include src/multilspy *.dll 
+recursive-include src *
