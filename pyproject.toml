@@ -37,4 +37,7 @@ dependencies = [
 [tool.setuptools]
 include-package-data = true
 package-dir = {"" = "src"}
-packages = ["multilspy"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["multilspy*"]
