@@ -44,4 +44,4 @@ include = [
     "multilspy",
     "multilspy.*"
 ]
-namespace = false
+namespaces = false
