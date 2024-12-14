@@ -1,6 +1,6 @@
-def main():
+def main(message="hello multilspy"):
     """Entry point for the multilspy-init command."""
-    print("hello multilspy")
+    print(message)
 
 if __name__ == "__main__":
     main() 

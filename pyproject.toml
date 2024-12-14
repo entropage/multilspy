@@ -1,7 +1,7 @@
 # Read https://setuptools.pypa.io/en/latest/userguide/datafiles.html
 [build-system]
-requires = ["flit_core>=3.4"]
-build-backend = "flit_core.buildapi"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "multilspy"
@@ -36,9 +36,5 @@ dependencies = [
 
 [tool.setuptools]
 include-package-data = true
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[project.entry_points."console_scripts"]
-multilspy-init = "multilspy.cli:main"
+package-dir = {"" = "src"}
+packages = ["multilspy"]
