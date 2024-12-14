@@ -40,5 +40,5 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[project.scripts]
+[project.entry_points."console_scripts"]
 multilspy-init = "multilspy.cli:main"
