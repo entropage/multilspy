@@ -11,7 +11,6 @@ import json
 import time
 import logging
 import os
-import sys
 import pathlib
 import threading
 from contextlib import asynccontextmanager, contextmanager
@@ -734,7 +733,7 @@ class LanguageServer:
         "typescript": {".ts", ".tsx", ".js", ".jsx"},
     }
 
-    def load_file(self, file_path: str) -> None:
+    async def load_file(self, file_path: str) -> None:
         """
         Load a single file into the Language Server.
         
@@ -762,7 +761,7 @@ class LanguageServer:
             self.open_file_buffers[uri] = LSPFileBuffer(uri, contents, version, self.language_id, 1)
             
             # Notify language server
-            self.server.notify.did_open_text_document(
+            await self.server.send.did_open_text_document(
                 {
                     LSPConstants.TEXT_DOCUMENT: {
                         LSPConstants.URI: uri,
@@ -777,7 +776,7 @@ class LanguageServer:
             self.logger.log(error_msg, logging.ERROR)
             raise MultilspyException(error_msg) from e
 
-    def load_all_workspace_files(self) -> None:
+    async def load_all_workspace_files(self) -> None:
         """
         Load all relevant files in the workspace into the Language Server.
         Uses the default extensions for the current language.
@@ -799,15 +798,20 @@ class LanguageServer:
             return
 
         # Walk through workspace and load matching files
+        tasks = []
         for root, _, files in os.walk(self.repository_root_path):
             for file in files:
                 if any(file.endswith(ext) for ext in file_extensions):
                     try:
                         file_path = os.path.join(root, file)
-                        self.load_file(file_path)
+                        tasks.append(self.load_file(file_path))
                     except MultilspyException:
                         # Error already logged in load_file
                         continue
+        
+        # Wait for all files to be loaded
+        if tasks:
+            await asyncio.gather(*tasks)
 
 @ensure_all_methods_implemented(LanguageServer)
 class SyncLanguageServer:
@@ -893,24 +897,10 @@ class SyncLanguageServer:
         loop_thread.start()
         ctx = self.language_server.start_server()
         asyncio.run_coroutine_threadsafe(ctx.__aenter__(), loop=self.loop).result()
-        try:
-            yield self
-        finally:
-            # Ensure proper cleanup
-            asyncio.run_coroutine_threadsafe(ctx.__aexit__(None, None, None), loop=self.loop).result()
-            self.loop.call_soon_threadsafe(self.loop.stop)
-            loop_thread.join()
-            
-            # Close the loop properly
-            self.loop.call_soon_threadsafe(self.loop.close)
-            
-            # Special handling for Windows IocpProactor
-            if sys.platform == 'win32':
-                try:
-                    # Force close any remaining event loop
-                    asyncio.set_event_loop(None)
-                except Exception:
-                    pass
+        yield self
+        asyncio.run_coroutine_threadsafe(ctx.__aexit__(None, None, None), loop=self.loop).result()
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        loop_thread.join()
 
     def request_definition(self, file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
         """
@@ -1010,11 +1000,15 @@ class SyncLanguageServer:
         :param file_path: The absolute path of the file to load
         :raises MultilspyException: If the server is not started or if there's an error loading the file
         """
-        self.language_server.load_file(file_path)
+        asyncio.run_coroutine_threadsafe(
+            self.language_server.load_file(file_path), self.loop
+        ).result()
 
     def load_all_workspace_files(self) -> None:
         """
         Load all relevant files in the workspace into the Language Server.
         Uses the default extensions for the current language.
         """
-        self.language_server.load_all_workspace_files()
+        asyncio.run_coroutine_threadsafe(
+            self.language_server.load_all_workspace_files(), self.loop
+        ).result()
