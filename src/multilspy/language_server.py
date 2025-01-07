@@ -11,6 +11,7 @@ import json
 import time
 import logging
 import os
+import sys
 import pathlib
 import threading
 from contextlib import asynccontextmanager, contextmanager
@@ -892,10 +893,24 @@ class SyncLanguageServer:
         loop_thread.start()
         ctx = self.language_server.start_server()
         asyncio.run_coroutine_threadsafe(ctx.__aenter__(), loop=self.loop).result()
-        yield self
-        asyncio.run_coroutine_threadsafe(ctx.__aexit__(None, None, None), loop=self.loop).result()
-        self.loop.call_soon_threadsafe(self.loop.stop)
-        loop_thread.join()
+        try:
+            yield self
+        finally:
+            # Ensure proper cleanup
+            asyncio.run_coroutine_threadsafe(ctx.__aexit__(None, None, None), loop=self.loop).result()
+            self.loop.call_soon_threadsafe(self.loop.stop)
+            loop_thread.join()
+            
+            # Close the loop properly
+            self.loop.call_soon_threadsafe(self.loop.close)
+            
+            # Special handling for Windows IocpProactor
+            if sys.platform == 'win32':
+                try:
+                    # Force close any remaining event loop
+                    asyncio.set_event_loop(None)
+                except Exception:
+                    pass
 
     def request_definition(self, file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
         """
