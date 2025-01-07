@@ -761,7 +761,7 @@ class LanguageServer:
             self.open_file_buffers[uri] = LSPFileBuffer(uri, contents, version, self.language_id, 1)
             
             # Notify language server
-            await self.server.send.did_open_text_document(
+            self.server.notify.did_open_text_document(
                 {
                     LSPConstants.TEXT_DOCUMENT: {
                         LSPConstants.URI: uri,
