@@ -724,52 +724,89 @@ class LanguageServer:
 
         return multilspy_types.Hover(**response)
 
-    def sync_workspace_files(self, file_extensions: List[str] = None) -> None:
+    # Language ID to file extensions mapping
+    LANGUAGE_EXTENSIONS = {
+        "java": {".java"},
+        "python": {".py", ".pyi"},
+        "rust": {".rs"},
+        "csharp": {".cs"},
+        "typescript": {".ts", ".tsx", ".js", ".jsx"},
+    }
+
+    def load_file(self, file_path: str) -> None:
         """
-        Synchronize all files in the workspace with the Language Server.
-        This method will scan the workspace directory and open all relevant files in the Language Server.
+        Load a single file into the Language Server.
         
-        :param file_extensions: Optional list of file extensions to filter files (e.g. ['.js', '.ts']). 
-                              If None, all files will be synced.
+        :param file_path: The absolute path of the file to load
+        :raises MultilspyException: If the server is not started or if there's an error loading the file
         """
         if not self.server_started:
             self.logger.log(
-                "sync_workspace_files called before Language Server started",
+                "load_file called before Language Server started",
                 logging.ERROR,
             )
             raise MultilspyException("Language Server not started")
 
+        try:
+            # Convert to URI and check if already open
+            uri = pathlib.Path(file_path).as_uri()
+            if uri in self.open_file_buffers:
+                return
+
+            # Read file contents
+            contents = FileUtils.read_file(self.logger, file_path)
+            
+            # Create file buffer
+            version = 0
+            self.open_file_buffers[uri] = LSPFileBuffer(uri, contents, version, self.language_id, 1)
+            
+            # Notify language server
+            self.server.notify.did_open_text_document(
+                {
+                    LSPConstants.TEXT_DOCUMENT: {
+                        LSPConstants.URI: uri,
+                        LSPConstants.LANGUAGE_ID: self.language_id,
+                        LSPConstants.VERSION: 0,
+                        LSPConstants.TEXT: contents,
+                    }
+                }
+            )
+        except Exception as e:
+            error_msg = f"Failed to load file {file_path}: {str(e)}"
+            self.logger.log(error_msg, logging.ERROR)
+            raise MultilspyException(error_msg) from e
+
+    def load_all_workspace_files(self) -> None:
+        """
+        Load all relevant files in the workspace into the Language Server.
+        Uses the default extensions for the current language.
+        """
+        if not self.server_started:
+            self.logger.log(
+                "load_all_workspace_files called before Language Server started",
+                logging.ERROR,
+            )
+            raise MultilspyException("Language Server not started")
+
+        # Get the default extensions for the current language
+        file_extensions = self.LANGUAGE_EXTENSIONS.get(self.language_id)
+        if not file_extensions:
+            self.logger.log(
+                f"No default file extensions found for language {self.language_id}",
+                logging.WARNING,
+            )
+            return
+
+        # Walk through workspace and load matching files
         for root, _, files in os.walk(self.repository_root_path):
             for file in files:
-                if file_extensions is None or any(file.endswith(ext) for ext in file_extensions):
+                if any(file.endswith(ext) for ext in file_extensions):
                     try:
                         file_path = os.path.join(root, file)
-                        
-                        # Skip files that are already open
-                        uri = pathlib.Path(file_path).as_uri()
-                        if uri in self.open_file_buffers:
-                            continue
-                        
-                        # Read file contents
-                        contents = FileUtils.read_file(self.logger, file_path)
-                        
-                        # Create file buffer
-                        version = 0
-                        self.open_file_buffers[uri] = LSPFileBuffer(uri, contents, version, self.language_id, 1)
-                        
-                        # Notify language server
-                        self.server.notify.did_open_text_document(
-                            {
-                                LSPConstants.TEXT_DOCUMENT: {
-                                    LSPConstants.URI: uri,
-                                    LSPConstants.LANGUAGE_ID: self.language_id,
-                                    LSPConstants.VERSION: 0,
-                                    LSPConstants.TEXT: contents,
-                                }
-                            }
-                        )
-                    except Exception as e:
-                        self.logger.log(f"Failed to sync file {file}: {str(e)}", logging.ERROR)
+                        self.load_file(file_path)
+                    except MultilspyException:
+                        # Error already logged in load_file
+                        continue
 
 @ensure_all_methods_implemented(LanguageServer)
 class SyncLanguageServer:
@@ -951,12 +988,18 @@ class SyncLanguageServer:
         ).result()
         return result
 
-    def sync_workspace_files(self, file_extensions: List[str] = None) -> None:
+    def load_file(self, file_path: str) -> None:
         """
-        Synchronize all files in the workspace with the Language Server.
-        This method will scan the workspace directory and open all relevant files in the Language Server.
+        Load a single file into the Language Server.
         
-        :param file_extensions: Optional list of file extensions to filter files (e.g. ['.js', '.ts']). 
-                              If None, all files will be synced.
+        :param file_path: The absolute path of the file to load
+        :raises MultilspyException: If the server is not started or if there's an error loading the file
         """
-        self.language_server.sync_workspace_files(file_extensions)
+        self.language_server.load_file(file_path)
+
+    def load_all_workspace_files(self) -> None:
+        """
+        Load all relevant files in the workspace into the Language Server.
+        Uses the default extensions for the current language.
+        """
+        self.language_server.load_all_workspace_files()
