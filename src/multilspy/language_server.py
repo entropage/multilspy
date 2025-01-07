@@ -724,6 +724,53 @@ class LanguageServer:
 
         return multilspy_types.Hover(**response)
 
+    def sync_workspace_files(self, file_extensions: List[str] = None) -> None:
+        """
+        Synchronize all files in the workspace with the Language Server.
+        This method will scan the workspace directory and open all relevant files in the Language Server.
+        
+        :param file_extensions: Optional list of file extensions to filter files (e.g. ['.js', '.ts']). 
+                              If None, all files will be synced.
+        """
+        if not self.server_started:
+            self.logger.log(
+                "sync_workspace_files called before Language Server started",
+                logging.ERROR,
+            )
+            raise MultilspyException("Language Server not started")
+
+        for root, _, files in os.walk(self.repository_root_path):
+            for file in files:
+                if file_extensions is None or any(file.endswith(ext) for ext in file_extensions):
+                    try:
+                        file_path = os.path.join(root, file)
+                        
+                        # Skip files that are already open
+                        uri = pathlib.Path(file_path).as_uri()
+                        if uri in self.open_file_buffers:
+                            continue
+                        
+                        # Read file contents
+                        contents = FileUtils.read_file(self.logger, file_path)
+                        
+                        # Create file buffer
+                        version = 0
+                        self.open_file_buffers[uri] = LSPFileBuffer(uri, contents, version, self.language_id, 1)
+                        
+                        # Notify language server
+                        self.server.notify.did_open_text_document(
+                            {
+                                LSPConstants.TEXT_DOCUMENT: {
+                                    LSPConstants.URI: uri,
+                                    LSPConstants.LANGUAGE_ID: self.language_id,
+                                    LSPConstants.VERSION: 0,
+                                    LSPConstants.TEXT: contents,
+                                }
+                            }
+                        )
+                    except Exception as e:
+                        self.logger.log(f"Failed to sync file {file}: {str(e)}", logging.ERROR)
+
 @ensure_all_methods_implemented(LanguageServer)
 class SyncLanguageServer:
     """
@@ -903,3 +950,13 @@ class SyncLanguageServer:
             self.language_server.request_hover(relative_file_path, line, column), self.loop
         ).result()
         return result
+
+    def sync_workspace_files(self, file_extensions: List[str] = None) -> None:
+        """
+        Synchronize all files in the workspace with the Language Server.
+        This method will scan the workspace directory and open all relevant files in the Language Server.
+        
+        :param file_extensions: Optional list of file extensions to filter files (e.g. ['.js', '.ts']). 
+                              If None, all files will be synced.
+        """
+        self.language_server.sync_workspace_files(file_extensions)
