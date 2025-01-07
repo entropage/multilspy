@@ -902,7 +902,7 @@ class SyncLanguageServer:
         self.loop.call_soon_threadsafe(self.loop.stop)
         loop_thread.join()
 
-    def request_definition(self, file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
+    def request_definition(self, relative_file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
         """
         Raise a [textDocument/definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition) request to the Language Server
         for the symbol at the given line and column in the given file. Wait for the response and return the result.
@@ -914,21 +914,21 @@ class SyncLanguageServer:
         :return List[multilspy_types.Location]: A list of locations where the symbol is defined
         """
         result = asyncio.run_coroutine_threadsafe(
-            self.language_server.request_definition(file_path, line, column), self.loop
+            self.language_server.request_definition(relative_file_path, line, column), self.loop
         ).result()
         return result
 
-    def request_type_definition(self, file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
+    def request_type_definition(self, relative_file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
         """
         Raise a [textDocument/typeDefinition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_typeDefinition) request to the Language Server
         for the symbol at the given line and column in the given file. Wait for the response and return the result.
         """
         result = asyncio.run_coroutine_threadsafe(
-            self.language_server.request_type_definition(file_path, line, column), self.loop
+            self.language_server.request_type_definition(relative_file_path, line, column), self.loop
         ).result()
         return result
 
-    def request_references(self, file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
+    def request_references(self, relative_file_path: str, line: int, column: int) -> List[multilspy_types.Location]:
         """
         Raise a [textDocument/references](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references) request to the Language Server
         to find references to the symbol at the given line and column in the given file. Wait for the response and return the result.
@@ -940,7 +940,7 @@ class SyncLanguageServer:
         :return List[multilspy_types.Location]: A list of locations where the symbol is referenced
         """
         result = asyncio.run_coroutine_threadsafe(
-            self.language_server.request_references(file_path, line, column), self.loop
+            self.language_server.request_references(relative_file_path, line, column), self.loop
         ).result()
         return result
 
